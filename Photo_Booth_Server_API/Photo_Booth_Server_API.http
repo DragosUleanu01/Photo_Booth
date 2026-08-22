@@ -5,5 +5,22 @@ Accept: application/json
 
 ###
 
-GET {{rootURL}}/api/image
+GET {{rootURL}}/api/image //Get toate imaginile
 Accept: application/json
+
+###
+GET {{rootURL}}/api/image/1 //Get imaginea cu id-ul 1
+Accept: application/json
+
+###
+POST {{rootURL}}/api/image //Post imagine noua
+Content-Type: application/json
+{"id": 4, "subject": "Sample Image 4", "filePath": "path/to/image4.jpg"}
+
+###
+PUT {{rootURL}}/api/image/2 //Update imaginea cu id-ul 2
+Content-Type: application/json
+{"id": 2, "subject": "Updated Image 2", "filePath": "path/to/updated_image2.jpg"}
+
+###
+DELETE {{rootURL}}/api/image/2 //Delete imaginea cu id-ul 2
