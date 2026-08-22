@@ -1,4 +1,5 @@
-
+using Microsoft.EntityFrameworkCore;
+using Photo_Booth_Server_API.Data;
 namespace Photo_Booth_Server_API
 {
     public class Program
@@ -12,6 +13,10 @@ namespace Photo_Booth_Server_API
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
+
+            builder.Services.AddDbContext<Context>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+
 
             var app = builder.Build();
 

@@ -15,7 +15,7 @@ Accept: application/json
 ###
 POST {{rootURL}}/api/image //Post imagine noua
 Content-Type: application/json
-{"id": 4, "subject": "Sample Image 4", "filePath": "path/to/image4.jpg"}
+{"subject": "Sample Image 4", "filePath": "path/to/image4.jpg"}
 
 ###
 PUT {{rootURL}}/api/image/2 //Update imaginea cu id-ul 2
