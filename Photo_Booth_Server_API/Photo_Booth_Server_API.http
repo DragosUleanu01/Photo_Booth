@@ -24,3 +24,19 @@ Content-Type: application/json
 
 ###
 DELETE {{rootURL}}/api/image/2 //Delete imaginea cu id-ul 2
+
+###
+POST {{rootURL}}/api/image/upload //Upload imagine
+Content-Type: multipart/form-data; boundary = MyBoundary
+
+--MyBoundary
+Content-Disposition: form-data; name="subject"
+
+Test Image
+--MyBoundary
+Content-Disposition: form-data; name="file"; filename="test_image.jpg"
+Content-Type: image/jpeg
+
+<./test.jpg>
+--MyBoundary--
+

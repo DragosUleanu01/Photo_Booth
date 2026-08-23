@@ -80,7 +80,7 @@ namespace Photo_Booth_Server_API.Controllers
         // Endpoint pentru upload-ul imaginilor + metadata unui obiect ImageFile in baza de date
         [HttpPost("upload")]
         
-        public async Task<ActionResult<ImageFile>> UploadImage(IFormFile file, [FromForm]string subject)
+        public async Task<ActionResult<ImageFile>> UploadImage([FromForm]IFormFile file, [FromForm]string subject)
         {
             if(file == null || file.Length == 0)
             {
@@ -122,6 +122,7 @@ namespace Photo_Booth_Server_API.Controllers
             return Ok(image);
 
         }
+
 
     }
 }

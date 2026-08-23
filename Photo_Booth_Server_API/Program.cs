@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Photo_Booth_Server_API.Data;
 namespace Photo_Booth_Server_API
 {
@@ -16,9 +18,32 @@ namespace Photo_Booth_Server_API
 
             builder.Services.AddDbContext<Context>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-
+            //modificare multipartheader si multipartbody length limit pentru a permite upload-ul de fisiere mari
+            // testata in Postman.
+            builder.Services.Configure<FormOptions>(options =>
+            {
+                options.MultipartHeadersLengthLimit = 1_048_576; 
+                options.MultipartBodyLengthLimit = 104_857_600;  
+                options.ValueLengthLimit = 1_048_576;
+            });
 
             var app = builder.Build();
+
+            var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
+            if(!Directory.Exists(uploadsPath))
+            {
+                Directory.CreateDirectory(uploadsPath);
+            }
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(uploadsPath),
+                RequestPath = "/Uploads"
+            });
+
+
+        
+
+
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
