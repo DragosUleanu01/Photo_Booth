@@ -10,12 +10,7 @@ namespace Photo_Booth_Server_API.Controllers
     [ApiController]
     public class ImageController : ControllerBase
     {
-        //static private List<ImageFile> image = new List<ImageFile> //lista imagini test
-        // {
-        // new ImageFile { Id = 1, Subject = "Sample Image 1", FilePath = "path/to/image1.jpg" },
-        // new ImageFile { Id = 2, Subject = "Sample Image 2", FilePath = "path/to/image2.jpg" },
-        //new ImageFile { Id = 3, Subject = "Sample Image 3", FilePath = "path/to/image3.jpg" }
-        //};
+      
 
 
         private readonly Context _context;
@@ -24,7 +19,8 @@ namespace Photo_Booth_Server_API.Controllers
             _context = context;
         }
 
-        //asyncronous methods for database operations - sa nu se blocheze threadul intre request-uri
+        //asyncronous sa nu se blocheze threadul intre request-uri
+        //metode pentru stocarea metadatelor imaginilor in baza de date, nu pentru stocarea imaginilor in sine
 
         [HttpGet]
         public async Task <ActionResult<List<ImageFile>>> GetImageFile() //Intoarce toate imaginile din lista
@@ -80,5 +76,52 @@ namespace Photo_Booth_Server_API.Controllers
             await _context.SaveChangesAsync();
             return NoContent();
         }
+
+        // Endpoint pentru upload-ul imaginilor + metadata unui obiect ImageFile in baza de date
+        [HttpPost("upload")]
+        
+        public async Task<ActionResult<ImageFile>> UploadImage(IFormFile file, [FromForm]string subject)
+        {
+            if(file == null || file.Length == 0)
+            {
+                return BadRequest("No file uploaded.");
+            }
+
+            // Salveaza upload-ul la un path specificat, in folderul "Uploads" din proiect
+            var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
+            
+            // double-check daca exista folderul, daca nu exista il creeaza
+            if (!Directory.Exists(uploadsPath))
+            {
+                Directory.CreateDirectory(uploadsPath);
+            }
+
+            //Generare nume unic pentru fisierul uploadat
+
+            var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+
+            var filePath = Path.Combine(uploadsPath, uniqueFileName);
+
+            //Salvare imagine in folderul "Uploads"
+
+            using(var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            //Creare obiect ImageFile pentru a stoca metadatele in baza de date
+            var image = new ImageFile
+            { 
+              Subject = subject,
+              FilePath = $"/Uploads/{uniqueFileName}"
+
+            };
+
+            _context.ImageFiles.Add(image);
+            await _context.SaveChangesAsync();
+            return Ok(image);
+
+        }
+
     }
 }
