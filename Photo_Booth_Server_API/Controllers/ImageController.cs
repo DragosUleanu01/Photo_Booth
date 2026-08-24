@@ -123,6 +123,39 @@ namespace Photo_Booth_Server_API.Controllers
 
         }
 
+        [HttpPost("{id}/duplicate")]
+        public async Task<ActionResult<ImageFile>> DuplicateImage(int id)
+        {
+            var image = await _context.ImageFiles.FindAsync(id);
 
+            if (image == null)
+            {
+                return NotFound();
+            }
+
+            var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), image.FilePath.TrimStart('/'));
+            if (!System.IO.File.Exists(sourcePath))
+            {
+                return NotFound();
+            }
+
+            var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
+
+            var extension = Path.GetExtension(sourcePath);
+            var newFileName = Guid.NewGuid().ToString() + extension;
+            var destinationPath = Path.Combine(uploadsPath, newFileName);
+
+            System.IO.File.Copy(sourcePath, destinationPath);
+
+            var duplicatedImage = new ImageFile
+            {
+                Subject = image.Subject,
+                FilePath = $"/Uploads/{newFileName}"
+            };
+            _context.ImageFiles.Add(duplicatedImage);
+            await _context.SaveChangesAsync();
+            return Ok(duplicatedImage);
+
+        }
     }
 }

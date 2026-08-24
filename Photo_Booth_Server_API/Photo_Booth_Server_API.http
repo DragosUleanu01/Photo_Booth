@@ -40,3 +40,5 @@ Content-Type: image/jpeg
 <./test.jpg>
 --MyBoundary--
 
+###
+POST {{rootURL}}/api/image/10/duplicate //Duplicate imaginea cu id-ul 10
