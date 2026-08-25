@@ -42,3 +42,7 @@ Content-Type: image/jpeg
 
 ###
 POST {{rootURL}}/api/image/10/duplicate //Duplicate imaginea cu id-ul 10
+
+
+###
+POST {{rootURL}}/api/image/10/filter?filter=blur //Aplica filtru din colectia de filtre specificata

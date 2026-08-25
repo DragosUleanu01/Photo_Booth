@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using ImageMagick;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Photo_Booth_Server_API.Data;
 using Photo_Booth_Server_API.Models;
+
 
 namespace Photo_Booth_Server_API.Controllers
 {
@@ -157,5 +159,71 @@ namespace Photo_Booth_Server_API.Controllers
             return Ok(duplicatedImage);
 
         }
+
+        [HttpPost("{id}/filter")]
+
+        public async Task<ActionResult<ImageFile>> ApplyFilter(int id, [FromQuery] string filter)
+        {
+            var imageFile = await _context.ImageFiles.FindAsync(id);
+            if (imageFile == null)
+            {
+                return NotFound();
+            }
+
+            var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), imageFile.FilePath.TrimStart('/'));
+            
+            if(!System.IO.File.Exists(sourcePath))
+            {
+                return NotFound();
+            }
+
+            // Folosirea unui obiect de tipul MagickImage pentru a aplica filtrele pe imaginea selectata
+            // Imaginea este gasita la path-ul specificat in baza de date, iar MagickImage este folosit pentru a manipula imaginea
+
+            using var image = new MagickImage(sourcePath);
+
+            
+            //selectare filtre din MagickImage
+
+            switch(filter.ToLower())
+            {
+                case "grayscale":
+                    image.Grayscale();
+                    break;
+                case "sepia":
+                    image.SepiaTone();
+                    break;
+                case "blur":
+                    image.Blur(0,5);
+                    break;
+                case "negate":
+                    image.Negate();
+                    break;
+                default:
+                    return BadRequest("Please specify a valid filter: grayscale, sepia, blur, negate.");
+
+
+            }
+
+            var extension = Path.GetExtension(sourcePath);
+            var newFileName = Guid.NewGuid().ToString() + extension;
+
+            var destinationPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads", newFileName);
+
+            await image.WriteAsync(destinationPath);
+            
+            var filteredImage = new ImageFile
+            {
+                Subject = imageFile.Subject + " - " + filter,
+                FilePath = $"/Uploads/{newFileName}"
+            };
+
+            _context.ImageFiles.Add(filteredImage);
+            await _context.SaveChangesAsync();
+
+            return Ok(filteredImage);
+
+        }
+
     }
 }
