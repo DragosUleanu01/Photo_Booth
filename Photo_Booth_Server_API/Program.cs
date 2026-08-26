@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Photo_Booth_Server_API.Data;
+using Microsoft.AspNetCore.Identity;
+using Photo_Booth_Server_API.Models;
 namespace Photo_Booth_Server_API
 {
     public class Program
@@ -17,6 +19,11 @@ namespace Photo_Booth_Server_API
             builder.Services.AddOpenApi();
 
             builder.Services.AddDbContext<Context>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            builder.Services
+            .AddIdentity<ApplicationUser, IdentityRole>()
+            .AddEntityFrameworkStores<Context>()
+            .AddDefaultTokenProviders();
 
             //modificare multipartheader si multipartbody length limit pentru a permite upload-ul de fisiere mari
             // testata in Postman.
