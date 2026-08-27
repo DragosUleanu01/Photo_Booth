@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Photo_Booth_Server_API.Data;
 
@@ -11,9 +12,11 @@ using Photo_Booth_Server_API.Data;
 namespace Photo_Booth_Server_API.Migrations
 {
     [DbContext(typeof(Context))]
-    partial class ContextModelSnapshot : ModelSnapshot
+    [Migration("20260826093436_AddIndentity")]
+    partial class AddIndentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -236,10 +239,6 @@ namespace Photo_Booth_Server_API.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.ToTable("ImageFiles");
@@ -249,22 +248,19 @@ namespace Photo_Booth_Server_API.Migrations
                         {
                             Id = 1,
                             FilePath = "path/to/image1.jpg",
-                            Subject = "Sample Image 1",
-                            UserId = ""
+                            Subject = "Sample Image 1"
                         },
                         new
                         {
                             Id = 2,
                             FilePath = "path/to/image2.jpg",
-                            Subject = "Sample Image 2",
-                            UserId = ""
+                            Subject = "Sample Image 2"
                         },
                         new
                         {
                             Id = 3,
                             FilePath = "path/to/image3.jpg",
-                            Subject = "Sample Image 3",
-                            UserId = ""
+                            Subject = "Sample Image 3"
                         });
                 });
 

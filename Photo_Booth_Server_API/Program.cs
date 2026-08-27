@@ -4,6 +4,11 @@ using Microsoft.Extensions.FileProviders;
 using Photo_Booth_Server_API.Data;
 using Microsoft.AspNetCore.Identity;
 using Photo_Booth_Server_API.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+
 namespace Photo_Booth_Server_API
 {
     public class Program
@@ -11,6 +16,7 @@ namespace Photo_Booth_Server_API
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            var jwtKey = builder.Configuration["Jwt:Key"];
 
             // Add services to the container.
 
@@ -18,8 +24,10 @@ namespace Photo_Booth_Server_API
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
 
+            //Adaugare context pentru baza de date si configurare SQL Server
             builder.Services.AddDbContext<Context>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+            //Implementare Identity pentru autentificare si autorizare
             builder.Services
             .AddIdentity<ApplicationUser, IdentityRole>()
             .AddEntityFrameworkStores<Context>()
@@ -33,6 +41,38 @@ namespace Photo_Booth_Server_API
                 options.MultipartBodyLengthLimit = 104_857_600;  
                 options.ValueLengthLimit = 1_048_576;
             });
+
+
+            //Adaugare autentificare JWT
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+             .AddJwtBearer(options =>
+             {
+                 options.TokenValidationParameters =
+                     new TokenValidationParameters
+                     {
+                         ValidateIssuer = true,
+                         ValidateAudience = true,
+                         ValidateLifetime = true,
+                         ValidateIssuerSigningKey = true,
+
+                         ValidIssuer =
+                             builder.Configuration["Jwt:Issuer"],
+
+                         ValidAudience =
+                             builder.Configuration["Jwt:Audience"],
+
+                         IssuerSigningKey =
+                             new SymmetricSecurityKey(
+                                 Encoding.UTF8.GetBytes(jwtKey!)
+                             )
+                     };
+
+             });
+
 
             var app = builder.Build();
 
@@ -60,6 +100,8 @@ namespace Photo_Booth_Server_API
 
             app.UseHttpsRedirection();
 
+            //Autorizare si autentificare pentru a proteja endpoint-urile API
+            app.UseAuthentication();
             app.UseAuthorization();
 
 

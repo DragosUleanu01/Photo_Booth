@@ -1,15 +1,20 @@
 ﻿using ImageMagick;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration.UserSecrets;
 using Photo_Booth_Server_API.Data;
 using Photo_Booth_Server_API.Models;
+using System.Security.Claims;
 
 
 namespace Photo_Booth_Server_API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // Această linie protejeaza toate endpoint-urile din acest controller
     public class ImageController : ControllerBase
     {
       
@@ -27,18 +32,36 @@ namespace Photo_Booth_Server_API.Controllers
         [HttpGet]
         public async Task <ActionResult<List<ImageFile>>> GetImageFile() //Intoarce toate imaginile din lista
         {
-            return Ok(await _context.ImageFiles.ToListAsync());
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var images = await _context.ImageFiles
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+
+            return Ok(images);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ImageFile>> GetImageById(int id) //Intoarce o imagine dupa id
         {
-            var imageFile = await _context.ImageFiles.FindAsync(id);
-            if (imageFile == null)
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var image = await _context.ImageFiles
+                .FirstOrDefaultAsync(x =>
+                    x.Id == id &&
+                    x.UserId == userId);
+
+            if (image == null)
             {
                 return NotFound();
             }
-            return Ok(imageFile);
+
+            return Ok(image);
         }
 
         [HttpPost]
@@ -55,21 +78,39 @@ namespace Photo_Booth_Server_API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateImage(int id, ImageFile imageFile) //modifica datelele unei imagini din lista
         {
-            var existingImage = await _context.ImageFiles.FindAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if(userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var existingImage = await _context.ImageFiles
+                .FirstOrDefaultAsync(x =>
+                    x.Id == id &&
+                    x.UserId == userId);
             if (existingImage == null)
             {
                 return NotFound();
             }
-            existingImage.Id = imageFile.Id;
+
             existingImage.Subject = imageFile.Subject;
-            existingImage.FilePath = imageFile.FilePath;
             await _context.SaveChangesAsync();
             return NoContent();
+
+
         }
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteImage(int id) //sterge o imagine din lista
+        public async Task<IActionResult> DeleteImage(int id, ImageFile imageFile) //sterge o imagine din lista
         {
-            var existingImage = await _context.ImageFiles.FindAsync(id);
+           var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+            var existingImage = await _context.ImageFiles
+                .FirstOrDefaultAsync(x =>
+                    x.Id == id &&
+                    x.UserId == userId);
             if (existingImage == null)
             {
                 return NotFound();
@@ -77,6 +118,8 @@ namespace Photo_Booth_Server_API.Controllers
             _context.ImageFiles.Remove(existingImage);
             await _context.SaveChangesAsync();
             return NoContent();
+
+
         }
 
         // Endpoint pentru upload-ul imaginilor + metadata unui obiect ImageFile in baza de date
@@ -87,6 +130,12 @@ namespace Photo_Booth_Server_API.Controllers
             if(file == null || file.Length == 0)
             {
                 return BadRequest("No file uploaded.");
+            }
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if(userId == null)
+            {
+                return Unauthorized();
             }
 
             // Salveaza upload-ul la un path specificat, in folderul "Uploads" din proiect
@@ -113,9 +162,10 @@ namespace Photo_Booth_Server_API.Controllers
 
             //Creare obiect ImageFile pentru a stoca metadatele in baza de date
             var image = new ImageFile
-            { 
-              Subject = subject,
-              FilePath = $"/Uploads/{uniqueFileName}"
+            {
+                Subject = subject,
+                FilePath = $"/Uploads/{uniqueFileName}",
+                UserId = userId
 
             };
 
@@ -128,23 +178,34 @@ namespace Photo_Booth_Server_API.Controllers
         [HttpPost("{id}/duplicate")]
         public async Task<ActionResult<ImageFile>> DuplicateImage(int id)
         {
-            var image = await _context.ImageFiles.FindAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (userId == null)
+                return Unauthorized();
+
+            var image = await _context.ImageFiles
+                .FirstOrDefaultAsync(x =>
+                    x.Id == id &&
+                    x.UserId == userId);
 
             if (image == null)
-            {
                 return NotFound();
-            }
 
-            var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), image.FilePath.TrimStart('/'));
+            var sourcePath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                image.FilePath.TrimStart('/')
+            );
+
             if (!System.IO.File.Exists(sourcePath))
-            {
                 return NotFound();
-            }
 
-            var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
+            var uploadsPath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "Uploads"
+            );
 
             var extension = Path.GetExtension(sourcePath);
-            var newFileName = Guid.NewGuid().ToString() + extension;
+            var newFileName = Guid.NewGuid() + extension;
             var destinationPath = Path.Combine(uploadsPath, newFileName);
 
             System.IO.File.Copy(sourcePath, destinationPath);
@@ -152,23 +213,30 @@ namespace Photo_Booth_Server_API.Controllers
             var duplicatedImage = new ImageFile
             {
                 Subject = image.Subject,
-                FilePath = $"/Uploads/{newFileName}"
+                FilePath = $"/Uploads/{newFileName}",
+                UserId = userId
             };
+
             _context.ImageFiles.Add(duplicatedImage);
             await _context.SaveChangesAsync();
-            return Ok(duplicatedImage);
 
+            return Ok(duplicatedImage);
         }
 
         [HttpPost("{id}/filter")]
 
         public async Task<ActionResult<ImageFile>> ApplyFilter(int id, [FromQuery] string filter)
         {
-            var imageFile = await _context.ImageFiles.FindAsync(id);
-            if (imageFile == null)
-            {
-                return NotFound();
-            }
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if(userId == null)
+                return Unauthorized();
+
+            var imageFile = await _context.ImageFiles.FirstOrDefaultAsync(x =>
+                    x.Id == id &&
+                    x.UserId == userId);
+
+
 
             var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), imageFile.FilePath.TrimStart('/'));
             
@@ -211,11 +279,12 @@ namespace Photo_Booth_Server_API.Controllers
             var destinationPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads", newFileName);
 
             await image.WriteAsync(destinationPath);
-            
+
             var filteredImage = new ImageFile
             {
                 Subject = imageFile.Subject + " - " + filter,
-                FilePath = $"/Uploads/{newFileName}"
+                FilePath = $"/Uploads/{newFileName}",
+                UserId = userId
             };
 
             _context.ImageFiles.Add(filteredImage);
