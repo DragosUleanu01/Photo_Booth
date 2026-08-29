@@ -1,0 +1,7 @@
+# Use this workspace to collaborate
+workspace:
+  id: af2b4cf4-ea82-4569-8f89-26a6f0100913
+
+localResources:
+  specs:
+    - ../Photo_Booth_Server_API/obj/Debug/net10.0/EndpointInfo/Photo_Booth_Server_API.json
