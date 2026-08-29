@@ -6,11 +6,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration.UserSecrets;
 using Photo_Booth_Server_API.Data;
-using Photo_Booth_Server_API.Models;
-using System.Security.Claims;
-using Photo_Booth_Server_API.Services;
 using Photo_Booth_Server_API.DTO;
+using Photo_Booth_Server_API.Models;
+using Photo_Booth_Server_API.Services;
+using System.Security.Claims;
 using System.Security.Cryptography;
+using static System.Net.WebRequestMethods;
 
 
 
@@ -83,7 +84,7 @@ namespace Photo_Booth_Server_API.Controllers
             return CreatedAtAction(nameof(GetImageById), new { id = imageFile.Id }, imageFile);
         }
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateImage(int id, ImageFile imageFile) //modifica datelele unei imagini din lista
+        public async Task<IActionResult> UpdateImage(int id, [FromBody] UpdateImageRequest request) //modifica datelele unei imagini din lista
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if(userId == null)
@@ -100,7 +101,7 @@ namespace Photo_Booth_Server_API.Controllers
                 return NotFound();
             }
 
-            existingImage.Subject = imageFile.Subject;
+            existingImage.Subject = request.Subject;
             await _context.SaveChangesAsync();
             return NoContent();
 
@@ -122,6 +123,16 @@ namespace Photo_Booth_Server_API.Controllers
             {
                 return NotFound();
             }
+
+            //update: stergere atat fisier fizic cat si inregistrarea din DB;
+
+            var physicalPath = Path.Combine(Directory.GetCurrentDirectory(), existingImage.FilePath.TrimStart('/'));
+
+            if(System.IO.File.Exists(physicalPath))
+            {
+                System.IO.File.Delete(physicalPath);
+            }
+
             _context.ImageFiles.Remove(existingImage);
             await _context.SaveChangesAsync();
             return NoContent();
@@ -202,7 +213,9 @@ namespace Photo_Booth_Server_API.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (userId == null)
+            {
                 return Unauthorized();
+            }
 
             var image = await _context.ImageFiles
                 .FirstOrDefaultAsync(x =>
@@ -210,7 +223,9 @@ namespace Photo_Booth_Server_API.Controllers
                     x.UserId == userId);
 
             if (image == null)
+            { 
                 return NotFound();
+            }
 
             var sourcePath = Path.Combine(
                 Directory.GetCurrentDirectory(),
@@ -218,8 +233,9 @@ namespace Photo_Booth_Server_API.Controllers
             );
 
             if (!System.IO.File.Exists(sourcePath))
+            {
                 return NotFound();
-
+            }
             var uploadsPath = Path.Combine(
                 Directory.GetCurrentDirectory(),
                 "Uploads"
@@ -235,7 +251,12 @@ namespace Photo_Booth_Server_API.Controllers
             {
                 Subject = image.Subject,
                 FilePath = $"/Uploads/{newFileName}",
-                UserId = userId
+                UserId = userId,
+
+                ContentType = image.ContentType,
+                Salt = image.Salt,
+                Nonce = image.Nonce,
+                Tag = image.Tag
             };
 
             _context.ImageFiles.Add(duplicatedImage);
@@ -246,72 +267,110 @@ namespace Photo_Booth_Server_API.Controllers
 
         [HttpPost("{id}/filter")]
 
-        public async Task<ActionResult<ImageFile>> ApplyFilter(int id, [FromQuery] string filter)
+        public async Task<ActionResult<ImageFile>> ApplyFilter(int id, [FromBody] FilterImageRequest request)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if(userId == null)
+            if (userId == null)
+            {
                 return Unauthorized();
+
+            }
 
             var imageFile = await _context.ImageFiles.FirstOrDefaultAsync(x =>
                     x.Id == id &&
                     x.UserId == userId);
 
-
+            if(imageFile == null)
+            {
+                return NotFound();
+            }
 
             var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), imageFile.FilePath.TrimStart('/'));
             
             if(!System.IO.File.Exists(sourcePath))
             {
-                return NotFound();
+                return NotFound("Fisierul nu exista");
             }
 
             // Folosirea unui obiect de tipul MagickImage pentru a aplica filtrele pe imaginea selectata
             // Imaginea este gasita la path-ul specificat in baza de date, iar MagickImage este folosit pentru a manipula imaginea
 
-            using var image = new MagickImage(sourcePath);
-
-            
-            //selectare filtre din MagickImage
-
-            switch(filter.ToLower())
+            try
             {
-                case "grayscale":
-                    image.Grayscale();
-                    break;
-                case "sepia":
-                    image.SepiaTone();
-                    break;
-                case "blur":
-                    image.Blur(0,5);
-                    break;
-                case "negate":
-                    image.Negate();
-                    break;
-                default:
-                    return BadRequest("Please specify a valid filter: grayscale, sepia, blur, negate.");
+                //Citire fisier criptat
+                var encryptedBytes = await System.IO.File.ReadAllBytesAsync(sourcePath);
+
+                //Decriptare imaginea originala folosind parola si metadatele salvate in baza de date
+                var salt = Convert.FromBase64String(imageFile.Salt);
+                var nonce = Convert.FromBase64String(imageFile.Nonce);
+                var tag = Convert.FromBase64String(imageFile.Tag);
+
+                //Decriptare Imagine Originala
+                var decryptedBytes = _encryptionService.Decrypt(encryptedBytes,request.EncryptionPassword, salt, nonce, tag);
+
+                //Incarcare imagine direct din memorie
+                using var image = new MagickImage(decryptedBytes);
+
+                //Selectare filtre din MagickImage
+                switch (request.Filter.ToLower())
+                {
+                    case "grayscale":
+                        image.Grayscale();
+                        break;
+                    case "sepia":
+                        image.SepiaTone();
+                        break;
+                    case "blur":
+                        image.Blur(0, 5);
+                        break;
+                    case "negate":
+                        image.Negate();
+                        break;
+                    default:
+                        return BadRequest("Please specify a valid filter: grayscale, sepia, blur, negate.");
 
 
+                }
+
+                //Transformarea imaginii inapoi in bytes
+                var filteredBytes = image.ToByteArray();
+
+                //Criptare rezultatul cu metadata noua
+
+                var encryptedFilteredBytes = _encryptionService.Encrypt(filteredBytes, request.EncryptionPassword, out var newSalt, out var newNonce, out var newTag);
+
+                //Salvare fisier criptat nou
+                var newFileName = Guid.NewGuid().ToString() + Path.GetExtension(sourcePath);
+                var destinationPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads", newFileName);
+                await System.IO.File.WriteAllBytesAsync(destinationPath,encryptedFilteredBytes);
+
+                //Creare obiect ImageFile pentru a stoca metadatele in baza de date
+                var filteredImage = new ImageFile
+                {
+                    Subject = imageFile.Subject + " - " + request.Filter,
+                    FilePath = $"/Uploads/{newFileName}",
+                    UserId = userId,
+                    ContentType = imageFile.ContentType,
+                    Salt = Convert.ToBase64String(newSalt),
+                    Nonce = Convert.ToBase64String(newNonce),
+                    Tag = Convert.ToBase64String(newTag)
+                };
+
+                _context.ImageFiles.Add(filteredImage);
+                await _context.SaveChangesAsync();
+                return Ok(filteredImage);
             }
 
-            var extension = Path.GetExtension(sourcePath);
-            var newFileName = Guid.NewGuid().ToString() + extension;
-
-            var destinationPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads", newFileName);
-
-            await image.WriteAsync(destinationPath);
-
-            var filteredImage = new ImageFile
+            catch (CryptographicException)
             {
-                Subject = imageFile.Subject + " - " + filter,
-                FilePath = $"/Uploads/{newFileName}",
-                UserId = userId
-            };
+                return BadRequest("Parola gresita");
+            }
 
-            _context.ImageFiles.Add(filteredImage);
-            await _context.SaveChangesAsync();
 
-            return Ok(filteredImage);
+
+
+
 
         }
 
@@ -369,6 +428,42 @@ namespace Photo_Booth_Server_API.Controllers
             }
 
             
+        }
+
+
+        //Endpoint pentru cautarea imaginilor dupa subiect
+        [HttpGet("subject/{subject}")]
+        public async Task<ActionResult<List<ImageFile>>> GetImageBySubject(string subject)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+            var images = await _context.ImageFiles
+                .Where(x => x.UserId == userId && x.Subject.Contains(subject))
+                .ToListAsync();
+            return Ok(images);
+        }
+
+        //Endpoint pentru cautarea subiectelor disponibile pentru un anumit user
+        [HttpGet("subject")]
+        public async Task<ActionResult<List<string>>> GetSubjects()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if(userId==null)
+            {
+                return Unauthorized();
+            }
+
+            var subject = await _context.ImageFiles
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Subject)
+                .Distinct()
+                .ToListAsync();
+
+            return Ok();
         }
 
     }
