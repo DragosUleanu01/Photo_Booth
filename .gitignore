@@ -361,3 +361,25 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# =========================
+# Unity Client
+# =========================
+
+Client/Photo_Booth_Unity_Client/[Ll]ibrary/
+Client/Photo_Booth_Unity_Client/[Tt]emp/
+Client/Photo_Booth_Unity_Client/[Oo]bj/
+Client/Photo_Booth_Unity_Client/[Ll]ogs/
+Client/Photo_Booth_Unity_Client/[Uu]ser[Ss]ettings/
+Client/Photo_Booth_Unity_Client/[Mm]emoryCaptures/
+Client/Photo_Booth_Unity_Client/[Rr]ecordings/
+
+Client/Photo_Booth_Unity_Client/[Bb]uild/
+Client/Photo_Booth_Unity_Client/[Bb]uilds/
+
+# Unity generated IDE files
+Client/Photo_Booth_Unity_Client/*.csproj
+Client/Photo_Booth_Unity_Client/*.sln
+Client/Photo_Booth_Unity_Client/*.slnx
+Client/Photo_Booth_Unity_Client/*.user
+Client/Photo_Booth_Unity_Client/*.userprefs
