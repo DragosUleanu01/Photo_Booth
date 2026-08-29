@@ -41,7 +41,7 @@ namespace Photo_Booth_Server_API.Controllers
                 _configuration["Jwt:Issuer"],
                 _configuration["Jwt:Audience"],
                 claims,
-                expires: DateTime.Now.AddHours(1),
+                expires: DateTime.UtcNow.AddHours(1),
                 signingCredentials: credentials
             );
             return new JwtSecurityTokenHandler().WriteToken(token);
@@ -94,6 +94,20 @@ namespace Photo_Booth_Server_API.Controllers
 
             var token = GenerateJwtToken(user);
             return Ok(new { Token = token });
+        }
+
+        // Endpoint pentru testarea prezenței header-ului Authorization
+        [HttpGet("test-header")]
+        public IActionResult TestHeader()
+        {
+            var authorizationHeader = Request.Headers.Authorization.ToString();
+
+            return Ok(new
+            {
+                hasAuthorization = !string.IsNullOrEmpty(authorizationHeader),
+                startsWithBearer = authorizationHeader.StartsWith("Bearer "),
+                length = authorizationHeader.Length
+            });
         }
 
     }

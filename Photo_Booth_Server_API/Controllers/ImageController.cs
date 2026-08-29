@@ -8,22 +8,29 @@ using Microsoft.Extensions.Configuration.UserSecrets;
 using Photo_Booth_Server_API.Data;
 using Photo_Booth_Server_API.Models;
 using System.Security.Claims;
+using Photo_Booth_Server_API.Services;
+using Photo_Booth_Server_API.DTO;
+using System.Security.Cryptography;
+
 
 
 namespace Photo_Booth_Server_API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Această linie protejeaza toate endpoint-urile din acest controller
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] // Această linie protejeaza toate endpoint-urile din acest controller
     public class ImageController : ControllerBase
     {
       
 
 
         private readonly Context _context;
-        public ImageController(Context context)
+        private readonly EncryptionService _encryptionService;
+
+        public ImageController(Context context, EncryptionService encryptionService)
         {
             _context = context;
+            _encryptionService = encryptionService;
         }
 
         //asyncronous sa nu se blocheze threadul intre request-uri
@@ -125,7 +132,7 @@ namespace Photo_Booth_Server_API.Controllers
         // Endpoint pentru upload-ul imaginilor + metadata unui obiect ImageFile in baza de date
         [HttpPost("upload")]
         
-        public async Task<ActionResult<ImageFile>> UploadImage([FromForm]IFormFile file, [FromForm]string subject)
+        public async Task<ActionResult<ImageFile>> UploadImage([FromForm]IFormFile file, [FromForm]string subject, [FromForm] string encryptionPassword)
         {
             if(file == null || file.Length == 0)
             {
@@ -155,17 +162,31 @@ namespace Photo_Booth_Server_API.Controllers
 
             //Salvare imagine in folderul "Uploads"
 
-            using(var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
+            
+            
+            using var memoryStream = new MemoryStream();
+
+            await file.CopyToAsync(memoryStream);
+
+            var imageBytes = memoryStream.ToArray();
+
+            var encryptedBytes = _encryptionService.Encrypt(imageBytes, encryptionPassword, out var salt, out var nonce, out var tag);
+
+            await System.IO.File.WriteAllBytesAsync(filePath, encryptedBytes);
+
+            
+            
 
             //Creare obiect ImageFile pentru a stoca metadatele in baza de date
             var image = new ImageFile
             {
                 Subject = subject,
                 FilePath = $"/Uploads/{uniqueFileName}",
-                UserId = userId
+                UserId = userId,
+                ContentType = file.ContentType,
+                Salt = Convert.ToBase64String(salt),
+                Nonce = Convert.ToBase64String(nonce),
+                Tag = Convert.ToBase64String(tag)
 
             };
 
@@ -292,6 +313,62 @@ namespace Photo_Booth_Server_API.Controllers
 
             return Ok(filteredImage);
 
+        }
+
+        [HttpPost("{id}/decrypt")]
+        public async Task<IActionResult> DecryptImage(int id, [FromBody] DecryptImageRequest request)
+        {
+            // Aflarea user-ului care face request-ul pentru a verifica daca are dreptul de a decripta imaginea
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (userId == null)
+            {
+                return Unauthorized(); 
+            }
+
+            // Obtinerea imaginii din baza de date pe baza id-ului si a userId-ului
+
+            var imageFile = await _context.ImageFiles.FirstOrDefaultAsync(x =>
+                    x.Id == id &&
+                    x.UserId == userId);
+
+            if (imageFile == null)
+            { 
+                return NotFound();
+            }
+
+            //Path-ul catre fotografie encripted
+            var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), imageFile.FilePath.TrimStart('/'));
+
+            if (!System.IO.File.Exists(sourcePath))
+                { 
+                return NotFound(); 
+                }
+
+            //Citire fisier encripted
+
+            var encryptedBytes = await System.IO.File.ReadAllBytesAsync(sourcePath);
+
+            //Schimbare metadate din Base64 in byte[] pentru a putea decripta imaginea
+
+            var salt = Convert.FromBase64String(imageFile.Salt);
+            var nonce = Convert.FromBase64String(imageFile.Nonce);
+            var tag = Convert.FromBase64String(imageFile.Tag);
+
+            try
+            {
+                //se incearca decriptarea imaginii folosind parola si metadatele salvate in baza de date
+                var decryptedBytes = _encryptionService.Decrypt(encryptedBytes, request.EncryptionPassword, salt, nonce, tag);
+                return File(decryptedBytes, imageFile.ContentType);
+            }
+
+
+            catch (CryptographicException)
+            {
+                return BadRequest("Parola gresita");
+            }
+
+            
         }
 
     }

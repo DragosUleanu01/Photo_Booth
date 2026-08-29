@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Photo_Booth_Server_API.Data;
 
@@ -11,9 +12,11 @@ using Photo_Booth_Server_API.Data;
 namespace Photo_Booth_Server_API.Migrations
 {
     [DbContext(typeof(Context))]
-    partial class ContextModelSnapshot : ModelSnapshot
+    [Migration("20260827101602_MissingItems")]
+    partial class MissingItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -228,10 +231,6 @@ namespace Photo_Booth_Server_API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("FilePath")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -264,7 +263,6 @@ namespace Photo_Booth_Server_API.Migrations
                         new
                         {
                             Id = 1,
-                            ContentType = "",
                             FilePath = "path/to/image1.jpg",
                             Nonce = "",
                             Salt = "",
@@ -275,7 +273,6 @@ namespace Photo_Booth_Server_API.Migrations
                         new
                         {
                             Id = 2,
-                            ContentType = "",
                             FilePath = "path/to/image2.jpg",
                             Nonce = "",
                             Salt = "",
@@ -286,7 +283,6 @@ namespace Photo_Booth_Server_API.Migrations
                         new
                         {
                             Id = 3,
-                            ContentType = "",
                             FilePath = "path/to/image3.jpg",
                             Nonce = "",
                             Salt = "",

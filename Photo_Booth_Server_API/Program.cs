@@ -1,11 +1,12 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
-using Photo_Booth_Server_API.Data;
-using Microsoft.AspNetCore.Identity;
-using Photo_Booth_Server_API.Models;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Photo_Booth_Server_API.Data;
+using Photo_Booth_Server_API.Models;
+using Photo_Booth_Server_API.Services;
 using System.Text;
 
 
@@ -59,11 +60,8 @@ namespace Photo_Booth_Server_API
                          ValidateLifetime = true,
                          ValidateIssuerSigningKey = true,
 
-                         ValidIssuer =
-                             builder.Configuration["Jwt:Issuer"],
-
-                         ValidAudience =
-                             builder.Configuration["Jwt:Audience"],
+                         ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                         ValidAudience = builder.Configuration["Jwt:Audience"],
 
                          IssuerSigningKey =
                              new SymmetricSecurityKey(
@@ -71,9 +69,25 @@ namespace Photo_Booth_Server_API
                              )
                      };
 
+                 options.Events = new JwtBearerEvents
+                 {
+                     OnAuthenticationFailed = context =>
+                     {
+                         System.Diagnostics.Debug.WriteLine("JWT AUTH FAILED:");
+                         System.Diagnostics.Debug.WriteLine(context.Exception.ToString());
+
+                         return Task.CompletedTask;
+                     },
+
+                     OnTokenValidated = context =>
+                     {
+                         System.Diagnostics.Debug.WriteLine("JWT VALIDATED");
+                         return Task.CompletedTask;
+                     }
+                 };
              });
 
-
+            builder.Services.AddScoped<EncryptionService>();
             var app = builder.Build();
 
             var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
