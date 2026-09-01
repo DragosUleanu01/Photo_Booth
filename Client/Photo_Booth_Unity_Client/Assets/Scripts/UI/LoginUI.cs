@@ -1,6 +1,5 @@
 using UnityEngine;
 using TMPro;
-using UnityEngine;
 using Unity.VectorGraphics;
 using UnityEngine.SceneManagement;
 

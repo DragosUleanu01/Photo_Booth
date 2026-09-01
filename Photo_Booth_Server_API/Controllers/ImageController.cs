@@ -108,36 +108,39 @@ namespace Photo_Booth_Server_API.Controllers
 
         }
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteImage(int id, ImageFile imageFile) //sterge o imagine din lista
+        public async Task<IActionResult> DeleteImage(int id)
         {
-           var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
             if (userId == null)
             {
                 return Unauthorized();
             }
+
             var existingImage = await _context.ImageFiles
                 .FirstOrDefaultAsync(x =>
                     x.Id == id &&
                     x.UserId == userId);
+
             if (existingImage == null)
             {
                 return NotFound();
             }
 
-            //update: stergere atat fisier fizic cat si inregistrarea din DB;
+            var physicalPath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                existingImage.FilePath.TrimStart('/')
+            );
 
-            var physicalPath = Path.Combine(Directory.GetCurrentDirectory(), existingImage.FilePath.TrimStart('/'));
-
-            if(System.IO.File.Exists(physicalPath))
+            if (System.IO.File.Exists(physicalPath))
             {
                 System.IO.File.Delete(physicalPath);
             }
 
             _context.ImageFiles.Remove(existingImage);
             await _context.SaveChangesAsync();
+
             return NoContent();
-
-
         }
 
         // Endpoint pentru upload-ul imaginilor + metadata unui obiect ImageFile in baza de date
