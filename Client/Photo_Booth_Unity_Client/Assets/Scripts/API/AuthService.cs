@@ -45,7 +45,7 @@ public class AuthService : MonoBehaviour
             Debug.LogError("Login failed: " + request.responseCode + " " + request.downloadHandler.text);
         }
 
-        callback?.Invoke(true);
+        callback?.Invoke(false);
 
 
 
@@ -86,8 +86,9 @@ public class AuthService : MonoBehaviour
         else
         {
             Debug.Log("Register Failed: " + request.responseCode + " " + request.downloadHandler.text);
+            callback?.Invoke(false);
         }
-        callback?.Invoke(false);
+        
 
     }
 }
