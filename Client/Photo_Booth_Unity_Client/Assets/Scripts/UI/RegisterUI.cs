@@ -13,6 +13,8 @@ public class RegisterUI : MonoBehaviour
     private TMP_Text messageText;
     [SerializeField]
     private AuthService authService;
+    [SerializeField]
+    private LoginUI loginUI;
 
     public void Register()
     {
@@ -25,7 +27,13 @@ public class RegisterUI : MonoBehaviour
         if (success)
         {
             messageText.gameObject.SetActive(false);
-            messageText.text = "Cont creat cu success";
+           // messageText.text = "Cont creat cu success";
+            usernameInput.text = "";
+            emailInput.text = "";
+            passwordInput.text = "";
+
+            messageText.text = "";
+            loginUI.ShowLogin();
         }
         else
         {

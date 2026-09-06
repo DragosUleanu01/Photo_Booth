@@ -26,7 +26,9 @@ namespace Photo_Booth_Server_API
             builder.Services.AddOpenApi();
 
             //Adaugare context pentru baza de date si configurare SQL Server
-            builder.Services.AddDbContext<Context>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+            builder.Services.AddDbContext<Context>(options => 
+            options.UseSqlServer(
+                builder.Configuration.GetConnectionString("DefaultConnection")));
 
             //Implementare Identity pentru autentificare si autorizare
             builder.Services

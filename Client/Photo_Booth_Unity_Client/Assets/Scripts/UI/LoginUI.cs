@@ -55,4 +55,11 @@ public class LoginUI : MonoBehaviour
 
     }
 
+    public void QuitApplication()
+    {
+        Debug.Log("Closing application...");
+
+        Application.Quit();
+    }
+
 }
