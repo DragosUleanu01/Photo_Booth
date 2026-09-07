@@ -10,3 +10,9 @@ Instrucțiuni de utilizare:
 6. Adăugați un subiect și o cheie de encriptie.
 7. Apăsați pe ... pentru a activa meniul de opțiuni.
 
+Pentru pornirea clientului:
+
+1. Modificati in appsettings.json connection string-ul cu cel oferit de SQL Server
+2. dotnet restore
+3. dotnet ef database update
+4. Modificati launchSettings.json cu "applicationUrl": "https://localhost:7043;http://localhost:5176"
